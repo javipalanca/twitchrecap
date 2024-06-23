@@ -1,0 +1,10 @@
+twitchio
+python-dotenv
+requests
+openai
+openai-whisper
+streamlink
+tqdm
+moviepy
+torchaudio
+librosa
