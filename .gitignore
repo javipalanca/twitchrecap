@@ -1,0 +1,12 @@
+.DS_Store
+.env
+summary copia.txt
+summary.txt
+transcription copia.json
+transcription.json
+twitch_video.mp4
+twitch_audio.wav.ts
+twitch_audio.wav
+twitch_audio.ts
+twitch_audio copia.wav
+twitch_audio copia.ts
