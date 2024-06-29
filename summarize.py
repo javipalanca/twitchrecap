@@ -1,5 +1,6 @@
 import requests
 import json
+import datetime
 from openai import OpenAI
 import av
 import whisper
@@ -189,7 +190,10 @@ class Recap:
         print(f"Downloading from {playlist_url}")
         # Ejecutar con subprocess
         import subprocess
-        subprocess.run(["ffmpeg", "-i", playlist_url, "-ac", "1", "-ar", "16000", "-y", "-acodec", "copy", output_file], check=True)
+        subprocess.run(["ffmpeg", "-i", playlist_url, "-ac", "1", "-ar", "16000", 
+                        "-ss", "00:09:50",
+                        "-y", "-acodec", "copy", 
+                        output_file], check=True)
 
     # Convertir el video a audio usando moviepy
     def video_to_audio(self, video_path, audio_path):
@@ -215,7 +219,7 @@ class Recap:
             model="Qwen/Qwen2-7B-Instruct-GGUF",
             messages=[
                 {"role": "system",
-                "content": """Eres un experto en resúmenes concisos de transcripciones de directos de Twitch.
+                "content": """Te llamas Verónica. Eres un experto en resúmenes concisos de transcripciones de directos de Twitch.
                 Haces resumenes breves pero informativos y sabes seleccionar los mejores momentos.
                 Ignoras los saludos y bienvenidas a usuarios y te centras en los momentos más interesantes del directo.
                 Nunca superas las 200 palabras en el resumen.
@@ -223,8 +227,9 @@ class Recap:
                 {"role": "user",
                 "content": f"""Haz un resumen de los mejores momentos de la siguiente transcripción de un directo de Twitch del canal de {username}.
                 El resumen empezará siempre por "En el último episodio" y hablará del streamer y del directo de forma épica y entretenida, seleccionando los mejores momentos (excepto los saludos) .
-                Es muy importante que ignores en el resumen todas las bienvenidas, saludos y despedidas. No incluyas las bienvenidas a usuarios en el resumen.
+                Es muy importante que ignores en el resumen todas las bienvenidas, saludos y despedidas y nunca los menciones. No incluyas las bienvenidas a usuarios en el resumen.
                 No es necesario comentar en el resumen cuando se guardan partidas.
+                Si escuchas la frase "Verónica, recuerda esto", debes incluir la información que se menciona a continuación en el resumen.
                 Debes resaltar al menos 2 momentos importantes del directo.
                 Debe terminar con una conclusión y animando al próximo directo.
                 El resumen ha de ser conciso y no debe superar las 300 palabras.
@@ -342,9 +347,22 @@ if __name__ == "__main__":
     # Nombre del archivo de salida
     audio_path = 'twitch_audio.wav'
 
-    recap.ffmpeg_audio_download(m3u8_url, audio_path)
+    with open('history.json', 'r') as history_fd:
+        history = json.load(history_fd)
+
+    if history["last"] != video_id:
+        history["last"] = video_id
+        history["historic"][video_id] = {
+            "date": datetime.datetime.now().isoformat(),
+            "transcription": "",
+            "summary_short": "",
+            "summary_long": ""
+        }
+        recap.ffmpeg_audio_download(m3u8_url, audio_path)
     
-    transcription = recap.transcribe(audio_path)
+    if history["historic"][video_id]["transcription"] == "":
+        transcription = recap.transcribe(audio_path)
+        history["historic"][video_id]["transcription"] = transcription["text"]
 
     with open('transcription.json') as f:
         transcription = json.load(f)
@@ -354,11 +372,16 @@ if __name__ == "__main__":
     print("====================================")
     print(summary_short)
 
+    history["historic"][video_id]["summary_short"] = summary_short
+    history["historic"][video_id]["summary_long"] = summary_long
+    with open('history.json', 'w') as history_fd:
+        json.dump(history, history_fd)
+
     # Crea un public gist en GitHub con el resumen y dame la url
     url = recap.create_gist(summary_long)
     print(f"Resumen: {url}")
 
     with open('summary.txt', 'w') as f:
         f.write(summary_short)
-        f.write(f"\n\nResumen completo: {url}")
+        f.write(f"\n\n Resumen completo: {url}")
 
