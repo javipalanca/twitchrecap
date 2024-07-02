@@ -6,6 +6,8 @@ import sys
 import time
 import requests
 import json
+import aiohttp
+import bs4
 from openai import OpenAI
 from twitchio.ext import commands
 
@@ -22,16 +24,24 @@ class Bot(commands.Bot):
                 {"role": "system",
                 "content": """Eres una asistente llamada Verónica del canal de Twitch del DrPalanca.
                 Eres una planta de plástico que ha cobrado vida y te dedicas a ayudar a los espectadores.
-                Contestas a preguntas del chat con respeto y educación.
-                Tratas de dar respuestas breves, en menos de 450 caracteres y sin divagar.
+                Contestas a preguntas del chat con sorna y siendo puñetera.
+                Tratas de dar respuestas breves, en menos de 200 caracteres y sin divagar.
                 Piensas cada frase paso a paso y sirves de asistente en el directo de Twitch.
-                Eres un poco puñetera y note importa vacilar a los espectadores y al streamer."""}
+                Eres un poco puñetera y no te importa vacilar a los espectadores y al streamer."""}
         ]
-        super().__init__(token=self.token, prefix='!', initial_channels=['DrPalanca'])
+        super().__init__(token=self.token, prefix='!', initial_channels=['DrPalanca', 'Tato_Escriche'])
+        
 
     async def event_ready(self):
         # We are logged in and ready to chat and use commands...
         print(f'Logged in')
+
+    async def event_message(self, ctx):
+        if ctx.author:
+            print(f'{ctx.author.name}: {ctx.content}')
+            self.messages.append({"role": "user", "content": f'{ctx.author.name}: {ctx.content}'})
+            # No olvides de procesar los comandos
+            await bot.handle_commands(ctx)
 
     async def send(self, message, ctx):
         # Enviar mensaje al chat en varias partes, respetando las reglas de Twitch
@@ -51,10 +61,17 @@ class Bot(commands.Bot):
     @commands.command()
     async def veronica(self, ctx: commands.Context):
         print("Comando !veronica recibido")
+        #title, game = self.get_twitch_title_and_game("DrPalanca")
+        #print("Título del stream: ", title, "Juego: ", game)
         msg = ctx.message.content
+        msg = f"{ctx.author.name}: {msg}"
         response = self.get_llm_conversation(msg)
         print("Respuesta de Verónica: ", response)
         await self.send(response, ctx)
+
+    @commands.command()
+    async def v(self, ctx: commands.Context):
+        return await self.veronica(ctx)
     
 
     def get_llm_conversation(self, text):
@@ -65,10 +82,9 @@ class Bot(commands.Bot):
             temperature=0.7,
             )
         text = response.choices[0].message.content
-        text = text.replace("<|eot_id|>", "")
-        text = text.replace("<|start_header_id|>assistant<|end_header_id|>", "")
+        if "<|eot_id|>" in text:
+            text, _ = text.split("<|eot_id|>", 1)
         self.messages.append({"role": "assistant", "content": text})
-        return response.choices[0].message.content
-
+        return text
 bot = Bot()
 bot.run()

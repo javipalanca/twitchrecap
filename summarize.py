@@ -229,7 +229,7 @@ class Recap:
                 El resumen empezará siempre por "En el último episodio" y hablará del streamer y del directo de forma épica y entretenida, seleccionando los mejores momentos (excepto los saludos) .
                 Es muy importante que ignores en el resumen todas las bienvenidas, saludos y despedidas y nunca los menciones. No incluyas las bienvenidas a usuarios en el resumen.
                 No es necesario comentar en el resumen cuando se guardan partidas.
-                Si escuchas la frase "Verónica, recuerda esto", debes incluir la información que se menciona a continuación en el resumen.
+                Si escuchas que te indican que recuerdes algo debes incluir la información que se menciona a continuación en el resumen.
                 Debes resaltar al menos 2 momentos importantes del directo.
                 Debe terminar con una conclusión y animando al próximo directo.
                 El resumen ha de ser conciso y no debe superar las 300 palabras.
