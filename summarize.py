@@ -213,6 +213,27 @@ class Recap:
             json.dump(transcription, f)
 
         return transcription
+    
+    def download_twich_subtitles(self, video_id):
+        headers = {
+            'Client-ID': self.client_id,
+            'Authorization': f'Bearer {self.access_token}'
+        }
+        url = f'https://api.twitch.tv/helix/videos?id={video_id}'
+        response = requests.get(url, headers=headers)
+        data = response.json()
+        if 'data' in data and len(data['data']) > 0:
+            video_data = data['data'][0]
+            print(video_data.keys())
+            return
+            subtitles_url = video_data['subtitles_url']
+            print(f"Downloading subtitles from {subtitles_url}")
+            response = requests.get(subtitles_url)
+            with open('subtitles.vtt', 'wb') as f:
+                f.write(response.content)
+        else:
+            print(data)
+            raise Exception("No se encontraron subtítulos") 
  
     def _summarize(self, text, username):
         response = client.chat.completions.create(
@@ -384,4 +405,5 @@ if __name__ == "__main__":
     with open('summary.txt', 'w') as f:
         f.write(summary_short)
         f.write(f"\n\n Resumen completo: {url}")
-
+    
+    #recap.download_twich_subtitles(video_id)
