@@ -1,10 +1,10 @@
 twitchio
+discord.py
 python-dotenv
+watchdog
 requests
 openai
-openai-whisper
-streamlink
-tqdm
-moviepy
-torchaudio
-librosa
+ollama
+asyncio
+bs4
+beautifulsoup4
