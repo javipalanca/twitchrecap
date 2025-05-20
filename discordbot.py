@@ -95,8 +95,6 @@ def get_llm_conversation(text, channel):
     
     return text
 
-from dotenv import load_dotenv
-
 # Token del bot (asegúrate de mantenerlo seguro)
 TOKEN = os.getenv('DISCORD_TOKEN')
 bot.run(TOKEN)
