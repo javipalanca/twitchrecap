@@ -3,6 +3,10 @@ import random
 import discord
 from discord.ext import commands
 from ollama import Client
+from dotenv import load_dotenv
+
+# Cargar variables de entorno desde el archivo .env
+load_dotenv()
 
 # Crea una instancia del bot
 intents = discord.Intents.default()  # Habilita los intents necesarios
