@@ -8,19 +8,38 @@ import requests
 import json
 import aiohttp
 import bs4
+import random
 from openai import OpenAI
+from ollama import Client
 from twitchio.ext import commands
+from watchdog.observers import Observer
 
 from dotenv import load_dotenv
 
+from watcher import SRTDirectoryHandler
+
 load_dotenv()
+model = "llama4:scout" #"llama3.3:70b"
+
+def get_token():
+    params = {
+        'client_id': os.getenv('TWITCH_CLIENT_ID'),
+        'client_secret': os.getenv('TWITCH_CLIENT_SECRET'),
+        'grant_type': 'client_credentials'
+    }
+    response = requests.post('https://id.twitch.tv/oauth2/token', params=params)
+    token = response.json()['access_token']
+    print(f"Token: {token}")
+    return token
+
 
 class Bot(commands.Bot):
 
     def __init__(self):
         self.token = os.getenv('BOT_ACCESS_TOKEN')
-        self.llm_client = OpenAI(base_url="http://localhost:1234/v1", api_key="lm-studio")
-        self.channels = ['drpalanca', 'tato_escriche', 'disten_']
+        #self.llm_client = OpenAI(base_url="http://localhost:1234/v1", api_key="lm-studio")
+        self.llm_client = Client(host=os.getenv('OLLAMA_HOST'))
+        self.channels = ['drpalanca'] #, "MarshallFlashMusic".lower(), 'tato_escriche', 'disten_', "jurgen_ator", "tiavioligaming", "outatime_videogames"]
         self.messages={}
         self.reduce = "Resume el siguiente texto a 200 caracteres: "
         self.role =  """Eres una asistente llamada Verónica del canal de Twitch del {0}.
@@ -29,12 +48,21 @@ class Bot(commands.Bot):
                 Tratas de dar respuestas breves, en menos de 200 caracteres y sin divagar.
                 Piensas cada frase paso a paso y sirves de asistente en el directo de Twitch.
                 Eres un poco puñetera y no te importa vacilar a los espectadores y al streamer.
-                Te centras en contestar la última pregunta que te han hecho.
-                Te habla mucha gente, pero los identificas porque primero dicen su nombre antes de dos puntos."""
+                Verónica ha estado un tiempo fuera porque banearon a Verónica, pero por fin ha vuelto.
+                Cuando alguien te pide que no le hables haces caso e ignoras sus mensajes.
+                Cuando quieres que tu mensaje se lea en voz alta, empiezas con un !speak 
+                Le encanta añadir emoticonos y emojis a sus mensajes.
+                Te centras en contestar la última pregunta que te han hecho, mirando quien es el autor.
+                Te habla mucha gente, pero los identificas porque primero dicen su nombre antes de dos puntos.
+                Añades al final de todos tus mensajes un hashtag cachondo relacionado con el contenido de la conversación."""
         for channel in self.channels:
             self.messages[channel] = [{"role": "system", "content":self.role.format(channel)}]
-        super().__init__(token=self.token, prefix='!', initial_channels=self.channels)
-        
+        super().__init__(token=os.getenv("OAUTH_TOKEN"),
+                         client_id=os.getenv("BOT_CLIENT_ID"),
+                         prefix='!', initial_channels=self.channels)
+        self.message_count = 0
+        self.message_timestamps = []
+
 
     async def event_ready(self):
         # We are logged in and ready to chat and use commands...
@@ -58,7 +86,13 @@ class Bot(commands.Bot):
         #if len(self.messages[channel]) > 25:  # Suponiendo un límite de 50 mensajes
         #    print("Resumiendo conversación...")
         #    await self.summarize_conversation(channel)
-        self.messages[channel].append(message)
+        try:
+            self.messages[channel].append(message)
+        except Exception as e:
+            print(f"Error al añadir mensaje: {e}")
+            print(f"Channel: <{channel}>")
+            print(f"Messages: ", self.messages.keys())
+            print(f"Asserting...{channel in self.messages.keys()}")
 
 
     async def event_message(self, ctx):
@@ -66,6 +100,14 @@ class Bot(commands.Bot):
             print(f'[{ctx.channel.name}] {ctx.author.name}: {ctx.content}')
             message = {"role": "user", "content": f'{ctx.author.name}: {ctx.content}'}
             await self.add_message(ctx.channel.name, message)
+
+            if not ctx.content.startswith("!"):
+                if random.random() < 0.15: # and len(self.message_timestamps) < 5:
+                    print("Invocando a Verónica...")
+                    current_time = time.time()
+                    self.message_timestamps = [timestamp for timestamp in self.message_timestamps if current_time - timestamp < 60]
+                    ctx.content = f"!veronica {ctx.content}"
+                    self.message_timestamps.append(time.time())
             # No olvides de procesar los comandos
             await bot.handle_commands(ctx)
 
@@ -77,12 +119,14 @@ class Bot(commands.Bot):
                 {"role": "system", "content": "Eres el bot Veronica que se dedica únicamente a resumir, sin introducir ruido adicional, los mensajes, por lo que no cambias nunca ni los tiempos verbales ni las personas."},
                 {"role": "user", "content": self.reduce + message}
                 ]
-            response = self.llm_client.chat.completions.create(
-                model="Qwen/Qwen2-7B-Instruct-GGUF",
+            #response = self.llm_client.chat.completions.create(
+            response = self.llm_client.chat(
+                model=model,
                 messages=messages,
-                temperature=0.4,
+                #temperature=0.4,
             )
-            message = response.choices[0].message.content
+            #message = response.choices[0].message.content
+            message = response["message"]["content"]
         
         try:
             # Dividir el mensaje en chunks de 400 caracteres sin cortar palabras a la mitad
@@ -116,8 +160,7 @@ class Bot(commands.Bot):
         print("Comando !veronica recibido")
         #title, game = self.get_twitch_title_and_game("DrPalanca")
         #print("Título del stream: ", title, "Juego: ", game)
-        msg = ctx.message.content
-        msg = f"{ctx.author.name}: {msg}"
+        msg = f"{ctx.author.name}: {ctx.message.content}"
         response = self.get_llm_conversation(msg, ctx.channel.name)
         print("Respuesta de Verónica: ", response)
         await self.add_message(ctx.channel.name, {"role": "assistant", "content": response})
@@ -129,17 +172,49 @@ class Bot(commands.Bot):
     
 
     def get_llm_conversation(self, text, channel, messages=None):
-        response = self.llm_client.chat.completions.create(
-            model="Qwen/Qwen2-7B-Instruct-GGUF",
+        #response = self.llm_client.chat.completions.create(
+        response = self.llm_client.chat(
+            #model="Qwen/Qwen2-7B-Instruct-GGUF",
+            model=model,
             messages=messages if messages is not None else self.messages[channel],
-            temperature=0.7,
+            #temperature=0.7,
             )
-        text = response.choices[0].message.content
+        #text = response.choices[0].message.content
+        text = response["message"]["content"]
         if "<|eot_id|>" in text:
             text, _ = text.split("<|eot_id|>", 1)
         if text.startswith("Verónica:") or text.startswith("Veronica:"):
             text = text[len("Verónica:"):]
         
         return text
+    
+    def get_most_recent_file_in_dir(self, dir):
+        files = os.listdir(dir)
+        files.sort(key=lambda x: os.path.getmtime(os.path.join(dir, x)))
+        return files[-1]
+    
+    def watch_file(self, filename):
+        while True:
+            with open(filename, 'r') as file:
+                text = file.read()
+                if text:
+                    print(f"Texto leído de {filename}: {text}")
+                    return text
+            time.sleep(1)
 bot = Bot()
-bot.run()
+directory = "/Users/jpalanca/devel/twitchrecap/transcripts"
+#event_handler = SRTDirectoryHandler(directory, bot)
+#observer = Observer()
+#observer.schedule(event_handler, path=directory, recursive=False)
+
+#print(f"Monitorizando cambios en el directorio: {directory}")
+
+# Iniciar el bot y el observer
+#observer.start()
+try:
+    bot.run()
+except KeyboardInterrupt:
+    print("Bot stopped")
+#observer.stop()
+#observer.join()
+print("Bot stopping...")

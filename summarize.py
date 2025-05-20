@@ -15,13 +15,16 @@ import librosa
 from dotenv import load_dotenv
 import sys
 import torch
+from ollama import Client
 
 load_dotenv()
 
 # Configuración de credenciales
 client_id = os.getenv('CLIENT_ID')
 client_secret = os.getenv('CLIENT_SECRET')
-client = OpenAI(base_url="http://localhost:1234/v1", api_key="lm-studio")
+#client = OpenAI(base_url="http://localhost:1234/v1", api_key="lm-studio")
+client = Client(host=os.getenv('OLLAMA_HOST'))
+model = "llama3.3:70b"
 
 class Recap:
     def __init__(self, username, openai_client, client_id=None, client_secret=None):
@@ -236,8 +239,9 @@ class Recap:
             raise Exception("No se encontraron subtítulos") 
  
     def _summarize(self, text, username):
-        response = client.chat.completions.create(
-            model="Qwen/Qwen2-7B-Instruct-GGUF",
+        #response = client.chat.completions.create(
+        response = client.chat(
+            model=model,
             messages=[
                 {"role": "system",
                 "content": """Te llamas Verónica. Eres un experto en resúmenes concisos de transcripciones de directos de Twitch.
@@ -256,16 +260,19 @@ class Recap:
                 El resumen ha de ser conciso y no debe superar las 300 palabras.
                 Este es el texto a resumir:\n\n{text}"""}
             ],
-            temperature=0.4,
+            #temperature=0.4,
             )
-        return response.choices[0].message.content
+        #return response.choices[0].message.content
+        return response["message"]["content"]
     
     def _join_summaries(self, summaries):
         text = ""
         for summary in summaries:
             text += summary + "\n***\n"
-        response = client.chat.completions.create(
-            model="Qwen/Qwen2-7B-Instruct-GGUF",
+        #response = client.chat.completions.create(
+        #    model="Qwen/Qwen2-7B-Instruct-GGUF",
+        response = client.chat(
+            model=model,
             messages=[
                 {"role": "system",
                 "content": """Eres un experto en unir resumenes de un mismo capítulo.
@@ -276,9 +283,10 @@ class Recap:
                 {"role": "user",
                 "content": f"""Une los resúmenes de diferentes partes de un directo de Twitch a partir del siguiente texto:\n\n{text}"""}
             ],
-            temperature=0.4,
+            #temperature=0.4,
             )
-        return response.choices[0].message.content
+        #return response.choices[0].message.content
+        return response["message"]["content"]
 
     # Resumir el texto
     def summarize_text(self, text, username):
@@ -294,8 +302,9 @@ class Recap:
             resumen_largo = self._summarize(text, username)
 
         # Resumir el resumen
-        response = client.chat.completions.create(
-            model="Qwen/Qwen2-7B-Instruct-GGUF",
+        #response = client.chat.completions.create(
+        response = client.chat(
+            model=model,
             messages=[
                 {"role": "system",
                 "content": """Eres un experto en resúmenes concisos. Nunca superas los 500 caracteres en el resumen.
@@ -303,10 +312,11 @@ class Recap:
                 {"role": "user",
                 "content": f"""Haz un resumen en menos de 500 caracteres del siguiente texto:\n\n{resumen_largo}"""}
             ],
-            temperature=0.4,
+            #temperature=0.4,
             )
 
-        resumen_corto = response.choices[0].message.content
+        #resumen_corto = response.choices[0].message.content
+        resumen_corto = response["message"]["content"]
 
         # Hacer que el resumen largo no tenga lineas de mas de 80 caracteres, para que sea más legible
         resumen_largo = self.format_to_80_columns(resumen_largo)
