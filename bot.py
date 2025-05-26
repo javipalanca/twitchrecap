@@ -15,6 +15,7 @@ from twitchio.ext import commands
 from watchdog.observers import Observer
 
 from dotenv import load_dotenv
+from signal_handlers import setup_signal_handlers
 
 from watcher import SRTDirectoryHandler
 
@@ -62,6 +63,13 @@ class Bot(commands.Bot):
                          prefix='!', initial_channels=self.channels)
         self.message_count = 0
         self.message_timestamps = []
+        
+        # Configurar manejadores de señales para reiniciar la memoria
+        setup_signal_handlers(self)
+        print(f"Bot de Twitch iniciado con PID: {os.getpid()}")
+        # Guardar el PID en un archivo para que webcontrol.py pueda encontrarlo
+        with open('twitch_bot.pid', 'w') as f:
+            f.write(str(os.getpid()))
 
 
     async def event_ready(self):

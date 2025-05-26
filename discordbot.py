@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
 from ollama import Client
 from dotenv import load_dotenv
+from signal_handlers import setup_signal_handlers
 
 # Cargar variables de entorno desde el archivo .env
 load_dotenv()
@@ -33,6 +34,13 @@ role =  """Eres una asistente llamada Verónica del canal de Discord del {0}.
 #for channel in channels:
 messages["drpalanca"].append({"role": "system", "content":role.format("DrPalanca")})
 messages["🤖charla-con-ia"].append({"role": "system", "content":role.format("🤖Charla con IA")})
+
+# Configurar manejadores de señales para reiniciar la memoria
+setup_signal_handlers({"messages": messages})
+print(f"Bot de Discord iniciado con PID: {os.getpid()}")
+# Guardar el PID en un archivo para que webcontrol.py pueda encontrarlo
+with open('discord_bot.pid', 'w') as f:
+    f.write(str(os.getpid()))
 
 
 # Evento: Cuando el bot se conecta

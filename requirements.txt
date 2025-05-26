@@ -8,3 +8,5 @@ ollama
 asyncio
 bs4
 beautifulsoup4
+flask
+psutil
