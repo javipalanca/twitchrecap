@@ -11,9 +11,8 @@ build:
 # Run the container
 run:
 	@echo "Running container..."
-	docker run -d --name $(CONTAINER_NAME) -p 5000:5000 \
-		-e ADMIN_USERNAME=admin \
-		-e ADMIN_PASSWORD=TuContraseñaSegura123 \
+	docker run -d --name $(CONTAINER_NAME) -p 5555:5555 \
+		--env-file .env \
 		$(IMAGE_NAME)
 
 # Stop and remove the container

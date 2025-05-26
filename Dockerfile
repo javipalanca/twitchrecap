@@ -21,8 +21,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Configuración de variables de entorno
 ENV PYTHONUNBUFFERED=1
-ENV ADMIN_USERNAME=admin
-ENV ADMIN_PASSWORD=contraseña_segura
 
 # Exponer el puerto para la interfaz web
 EXPOSE 5555

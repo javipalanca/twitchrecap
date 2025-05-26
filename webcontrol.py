@@ -7,14 +7,20 @@ import secrets
 from functools import wraps
 from flask import Flask, render_template, redirect, url_for, request, jsonify, session, flash
 from signal_handlers import send_reset_memory_signal
+from dotenv import load_dotenv
+
+# Cargar variables de entorno
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)  # Genera una clave secreta aleatoria
 
 # Configuración de autenticación
-# Cambia estas credenciales a valores seguros
-USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
-PASSWORD = os.environ.get('ADMIN_PASSWORD', 'contraseña_segura')
+# Leer credenciales desde el archivo .env
+USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
+PASSWORD = os.getenv('ADMIN_PASSWORD', 'contraseña_segura')
+
+print(f"Credenciales cargadas - Usuario: {USERNAME}, Contraseña configurada: {'Sí' if PASSWORD else 'No'}")
 
 def login_required(f):
     @wraps(f)
@@ -92,12 +98,18 @@ def index():
 def login():
     error = None
     if request.method == 'POST':
-        if request.form['username'] == USERNAME and request.form['password'] == PASSWORD:
+        entered_username = request.form['username']
+        entered_password = request.form['password']
+        print(f"Intento de login - Usuario ingresado: {entered_username}, Contraseña ingresada: {entered_password}")
+        print(f"Valores esperados - Usuario: {USERNAME}, Contraseña: {PASSWORD}")
+        
+        if entered_username == USERNAME and entered_password == PASSWORD:
             session['logged_in'] = True
             flash('Has iniciado sesión correctamente')
             return redirect(request.args.get('next') or url_for('index'))
         else:
             error = 'Credenciales inválidas. Por favor, inténtalo de nuevo.'
+            print(f"Error de autenticación - Usuario coincide: {entered_username == USERNAME}, Contraseña coincide: {entered_password == PASSWORD}")
     
     return render_template('login.html', error=error)
 
