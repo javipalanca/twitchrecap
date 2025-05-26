@@ -88,13 +88,18 @@ def get_bot_pids():
         for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
             try:
                 cmdline = proc.info['cmdline']
-                if cmdline and 'python' in cmdline[0]:
-                    if len(cmdline) > 1 and 'bot.py' in cmdline[1]:
-                        twitch_pid = proc.info['pid']
-                        debug_log(f"Proceso Twitch encontrado mediante psutil, PID: {twitch_pid}, Comando: {cmdline}")
-                    elif len(cmdline) > 1 and 'discordbot.py' in cmdline[1]:
-                        discord_pid = proc.info['pid']
-                        debug_log(f"Proceso Discord encontrado mediante psutil, PID: {discord_pid}, Comando: {cmdline}")
+                if cmdline and len(cmdline) > 1 and 'python' in cmdline[0]:
+                    # Verificar el nombre exacto del script y la ruta completa si está disponible
+                    script_name = os.path.basename(cmdline[1]) if len(cmdline) > 1 else ""
+                    
+                    if script_name == 'bot.py':
+                        if not twitch_pid:  # Solo asignar si aún no se encontró
+                            twitch_pid = proc.info['pid']
+                            debug_log(f"Proceso Twitch encontrado mediante psutil, PID: {twitch_pid}, Comando: {cmdline}")
+                    elif script_name == 'discordbot.py':
+                        if not discord_pid:  # Solo asignar si aún no se encontró
+                            discord_pid = proc.info['pid']
+                            debug_log(f"Proceso Discord encontrado mediante psutil, PID: {discord_pid}, Comando: {cmdline}")
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess) as e:
                 debug_log(f"Error al inspeccionar proceso con psutil: {e}")
     
@@ -184,12 +189,28 @@ def stop_twitch_bot():
             debug_log(f"Enviando señal SIGTERM al proceso Twitch con PID {twitch_pid}")
             os.kill(twitch_pid, signal.SIGTERM)
             debug_log("Señal SIGTERM enviada correctamente al bot de Twitch")
+            
+            # Eliminar el archivo PID si existe
+            if os.path.exists('twitch_bot.pid'):
+                try:
+                    os.remove('twitch_bot.pid')
+                    debug_log("Archivo twitch_bot.pid eliminado correctamente")
+                except Exception as e:
+                    debug_log(f"Error al eliminar archivo twitch_bot.pid: {str(e)}")
+            
             return jsonify({"status": "success", "message": "Bot de Twitch detenido correctamente"})
         except Exception as e:
             debug_log(f"Error al detener el bot de Twitch: {str(e)}")
             return jsonify({"status": "error", "message": f"Error al detener el bot de Twitch: {str(e)}"})
     else:
         debug_log("Intento de detener el bot de Twitch, pero no se encontró ningún proceso en ejecución")
+        # Eliminar el archivo PID si existe, aunque no se encontró el proceso
+        if os.path.exists('twitch_bot.pid'):
+            try:
+                os.remove('twitch_bot.pid')
+                debug_log("Archivo twitch_bot.pid eliminado aunque no se encontró el proceso")
+            except Exception as e:
+                debug_log(f"Error al eliminar archivo twitch_bot.pid: {str(e)}")
         return jsonify({"status": "error", "message": "El bot de Twitch no está en ejecución"})
 
 @app.route('/start_discord_bot')
@@ -226,12 +247,28 @@ def stop_discord_bot():
             debug_log(f"Enviando señal SIGTERM al proceso Discord con PID {discord_pid}")
             os.kill(discord_pid, signal.SIGTERM)
             debug_log("Señal SIGTERM enviada correctamente al bot de Discord")
+            
+            # Eliminar el archivo PID si existe
+            if os.path.exists('discord_bot.pid'):
+                try:
+                    os.remove('discord_bot.pid')
+                    debug_log("Archivo discord_bot.pid eliminado correctamente")
+                except Exception as e:
+                    debug_log(f"Error al eliminar archivo discord_bot.pid: {str(e)}")
+            
             return jsonify({"status": "success", "message": "Bot de Discord detenido correctamente"})
         except Exception as e:
             debug_log(f"Error al detener el bot de Discord: {str(e)}")
             return jsonify({"status": "error", "message": f"Error al detener el bot de Discord: {str(e)}"})
     else:
         debug_log("Intento de detener el bot de Discord, pero no se encontró ningún proceso en ejecución")
+        # Eliminar el archivo PID si existe, aunque no se encontró el proceso
+        if os.path.exists('discord_bot.pid'):
+            try:
+                os.remove('discord_bot.pid')
+                debug_log("Archivo discord_bot.pid eliminado aunque no se encontró el proceso")
+            except Exception as e:
+                debug_log(f"Error al eliminar archivo discord_bot.pid: {str(e)}")
         return jsonify({"status": "error", "message": "El bot de Discord no está en ejecución"})
 
 @app.route('/restart_twitch_bot')
@@ -243,6 +280,15 @@ def restart_twitch_bot():
     # Pequeña pausa para asegurar que el proceso anterior termine completamente
     import time
     time.sleep(1)
+    
+    # Verificar que el archivo PID ha sido eliminado antes de iniciar el nuevo proceso
+    if os.path.exists('twitch_bot.pid'):
+        try:
+            os.remove('twitch_bot.pid')
+            debug_log("Archivo twitch_bot.pid eliminado antes de reiniciar")
+        except Exception as e:
+            debug_log(f"Error al eliminar archivo twitch_bot.pid antes de reiniciar: {str(e)}")
+    
     response_start = start_twitch_bot()
     debug_log(f"Resultado de inicio del bot de Twitch: {response_start.get_json()}")
     return response_start
@@ -256,6 +302,15 @@ def restart_discord_bot():
     # Pequeña pausa para asegurar que el proceso anterior termine completamente
     import time
     time.sleep(1)
+    
+    # Verificar que el archivo PID ha sido eliminado antes de iniciar el nuevo proceso
+    if os.path.exists('discord_bot.pid'):
+        try:
+            os.remove('discord_bot.pid')
+            debug_log("Archivo discord_bot.pid eliminado antes de reiniciar")
+        except Exception as e:
+            debug_log(f"Error al eliminar archivo discord_bot.pid antes de reiniciar: {str(e)}")
+    
     response_start = start_discord_bot()
     debug_log(f"Resultado de inicio del bot de Discord: {response_start.get_json()}")
     return response_start
